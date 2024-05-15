@@ -1,12 +1,29 @@
 import React, { useState } from 'react';
 import { Box, Input, Button, VStack, Text, Image } from '@chakra-ui/react';
+import { create } from 'lib/openai';
 
 const Index = () => {
+  const [description, setDescription] = useState('');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
 
-  const searchSongs = async () => {
+  const generateQuery = async () => {
+    try {
+      const response = await create({
+        messages: [{ role: 'system', content: 'you must take user input and only output a search query for relevant song(s) on spotify' }, { role: 'user', content: description }],
+        model: 'gpt-4o'
+      });
+      const generatedQuery = response.choices[0].message.content;
+      setQuery(generatedQuery);
+      searchSongs(generatedQuery);
+    } catch (err) {
+      setError('Failed to generate search query. Please try again.');
+      console.error(err);
+    }
+  };
+
+  const searchSongs = async (searchQuery) => {
     setError('');
     try {
       const response = await fetch('https://accounts.spotify.com/api/token', {
@@ -21,7 +38,7 @@ const Index = () => {
       const data = await response.json();
       const token = data.access_token;
 
-      const searchResponse = await fetch(`https://api.spotify.com/v1/search?q=${query}&type=track`, {
+      const searchResponse = await fetch(`https://api.spotify.com/v1/search?q=${searchQuery}&type=track`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -39,11 +56,11 @@ const Index = () => {
     <Box p={4}>
       <VStack spacing={4}>
         <Input
-          placeholder="Search for a song"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Describe the song"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
         />
-        <Button onClick={searchSongs}>Search</Button>
+        <Button onClick={generateQuery}>Generate Query and Search</Button>
         {error && <Text color="red.500">{error}</Text>}
         {results.map((track) => (
           <Box key={track.id} borderWidth="1px" borderRadius="lg" overflow="hidden" p={4} width="100%">
